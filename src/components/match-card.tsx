@@ -18,9 +18,11 @@ function StatusBadge({ match }: { match: Match }) {
     );
   }
   const t = new Date(match.startTime);
+  const hours = t.getHours().toString().padStart(2, "0");
+  const minutes = t.getMinutes().toString().padStart(2, "0");
   return (
     <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-      {t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      {hours}:{minutes}
     </span>
   );
 }
