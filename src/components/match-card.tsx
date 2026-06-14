@@ -28,7 +28,7 @@ function StatusBadge({ match }: { match: Match }) {
 }
 
 function FormBar({ w, d, l }: { w: number; d: number; l: number }) {
-  const total = w + d + l;
+  const total = w + d + l || 1;
   return (
     <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
       <div className="bg-success" style={{ width: `${(w / total) * 100}%` }} />
@@ -38,8 +38,25 @@ function FormBar({ w, d, l }: { w: number; d: number; l: number }) {
   );
 }
 
+function topHighlight(match: Match): { label: string; value: number } | null {
+  if (match.footballPredictions) {
+    const goals = match.footballPredictions.totals.find((t) => t.metric === "Total goles");
+    if (goals && goals.thresholds.length) {
+      const best = [...goals.thresholds].sort(
+        (a, b) => Math.abs(70 - a.overPct) - Math.abs(70 - b.overPct),
+      )[0];
+      return { label: `Over ${best.line} goles`, value: best.overPct };
+    }
+  }
+  if (match.predictions && match.predictions.length > 0) {
+    const top = [...match.predictions].sort((a, b) => b.value - a.value)[0];
+    return { label: top.label, value: top.value };
+  }
+  return null;
+}
+
 export function MatchCard({ match, onSelect }: { match: Match; onSelect: (m: Match) => void }) {
-  const topPred = [...match.predictions].sort((a, b) => b.value - a.value)[0];
+  const top = topHighlight(match);
   return (
     <button
       onClick={() => onSelect(match)}
@@ -73,23 +90,29 @@ export function MatchCard({ match, onSelect }: { match: Match; onSelect: (m: Mat
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Last 15 · home</span>
+          <span className="text-muted-foreground">Últimos 15 · local</span>
           <span className="tabular-nums text-foreground">
-            {match.home.last15.wins}W {match.home.last15.draws}D {match.home.last15.losses}L
+            {match.home.last15.wins}G {match.home.last15.draws}E {match.home.last15.losses}P
           </span>
         </div>
-        <FormBar {...{ w: match.home.last15.wins, d: match.home.last15.draws, l: match.home.last15.losses }} />
+        <FormBar
+          w={match.home.last15.wins}
+          d={match.home.last15.draws}
+          l={match.home.last15.losses}
+        />
       </div>
 
-      <div className="flex items-center justify-between border-t border-border pt-3">
-        <div className="text-xs text-muted-foreground">Top prediction</div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-foreground">{topPred.label}</span>
-          <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary tabular-nums">
-            {topPred.value}{topPred.unit}
-          </span>
+      {top && (
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <div className="text-xs text-muted-foreground">Predicción destacada</div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-foreground">{top.label}</span>
+            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary tabular-nums">
+              {top.value}%
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </button>
   );
 }
