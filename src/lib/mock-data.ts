@@ -103,13 +103,13 @@ type FootStats = {
 
 function buildFootballPredictions(home: FootStats, away: FootStats, hForm: TeamForm["last15"], aForm: TeamForm["last15"]): FootballPredictions {
   const totals: TieredTotal[] = [
-    tieredAround("Total goles", home.goals + away.goals, 1, 6, -2),
-    tieredAround("Total remates a puerta", home.shotsOnTarget + away.shotsOnTarget, 1, 5, -2),
-    tieredAround("Total remates", home.shots + away.shots, 2, 5, -4),
-    tieredAround("Total córners", home.corners + away.corners, 1, 5, -2),
-    tieredAround("Total tarjetas", home.yellowCards + away.yellowCards, 1, 5, -2),
-    tieredAround("Total faltas", home.foulsCommitted + away.foulsCommitted, 2, 5, -4),
-    tieredAround("Total pases", home.passes + away.passes, 50, 5, -100),
+    tieredFixed("Total goles", home.goals + away.goals, [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]),
+    tieredFrom90("Total remates a puerta", home.shotsOnTarget + away.shotsOnTarget, 1, 5),
+    tieredFrom90("Total remates", home.shots + away.shots, 2, 5),
+    tieredFrom90("Total córners", home.corners + away.corners, 1, 5),
+    tieredFixed("Total tarjetas", home.yellowCards + away.yellowCards, [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5]),
+    tieredFrom90("Total faltas", home.foulsCommitted + away.foulsCommitted, 2, 5),
+    tieredFrom90("Total pases", home.passes + away.passes, 50, 5),
   ];
 
   // Doble oportunidad derivada de forma
