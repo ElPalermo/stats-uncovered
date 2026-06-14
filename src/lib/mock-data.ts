@@ -50,10 +50,11 @@ export interface Match {
   sources?: string[];
 }
 
-const now = new Date();
+// Anclado a una fecha fija para que SSR y cliente produzcan el mismo HTML.
+const now = new Date("2026-06-14T12:00:00.000Z");
 const iso = (h: number, m = 0) => {
   const d = new Date(now);
-  d.setHours(now.getHours() + h, m, 0, 0);
+  d.setUTCHours(now.getUTCHours() + h, m, 0, 0);
   return d.toISOString();
 };
 
