@@ -50,10 +50,11 @@ export interface Match {
   sources?: string[];
 }
 
-const now = new Date();
+// Anclado a una fecha fija para que SSR y cliente produzcan el mismo HTML.
+const now = new Date("2026-06-14T12:00:00.000Z");
 const iso = (h: number, m = 0) => {
   const d = new Date(now);
-  d.setHours(now.getHours() + h, m, 0, 0);
+  d.setUTCHours(now.getUTCHours() + h, m, 0, 0);
   return d.toISOString();
 };
 
@@ -70,14 +71,23 @@ const overProb = (line: number, lambda: number) => {
 };
 const pct = (p: number) => Math.round(p * 100);
 
-/** Genera umbrales centrados en la media. */
-function tieredAround(metric: string, lambda: number, step = 1, count = 5, startOffset = -2): TieredTotal {
-  const base = Math.max(0, Math.round(lambda) + startOffset);
-  const thresholds = Array.from({ length: count }, (_, i) => {
-    const line = base + step * i + 0.5;
-    return { line, overPct: pct(overProb(line, lambda)) };
-  });
-  return { metric, thresholds };
+/** Umbrales con líneas fijas. */
+function tieredFixed(metric: string, lambda: number, lines: number[]): TieredTotal {
+  return {
+    metric,
+    thresholds: lines.map((line) => ({ line, overPct: pct(overProb(line, lambda)) })),
+  };
+}
+
+/** Umbrales arrancando desde la línea más alta cuya prob. Over sigue siendo >= 90%. */
+function tieredFrom90(metric: string, lambda: number, step: number, count: number): TieredTotal {
+  let start = step / 2; // 0.5 si step=1, etc. (medio paso para acabar en *.5)
+  // Para steps enteros, garantizar terminación en .5
+  if (step >= 1) start = 0.5;
+  let cursor = start;
+  while (overProb(cursor + step, lambda) >= 0.9) cursor += step;
+  const lines = Array.from({ length: count }, (_, i) => cursor + step * i);
+  return tieredFixed(metric, lambda, lines);
 }
 
 /* ---------- Stats base por equipo (medias últimos 15) ---------- */
@@ -94,13 +104,13 @@ type FootStats = {
 
 function buildFootballPredictions(home: FootStats, away: FootStats, hForm: TeamForm["last15"], aForm: TeamForm["last15"]): FootballPredictions {
   const totals: TieredTotal[] = [
-    tieredAround("Total goles", home.goals + away.goals, 1, 6, -2),
-    tieredAround("Total remates a puerta", home.shotsOnTarget + away.shotsOnTarget, 1, 5, -2),
-    tieredAround("Total remates", home.shots + away.shots, 2, 5, -4),
-    tieredAround("Total córners", home.corners + away.corners, 1, 5, -2),
-    tieredAround("Total tarjetas", home.yellowCards + away.yellowCards, 1, 5, -2),
-    tieredAround("Total faltas", home.foulsCommitted + away.foulsCommitted, 2, 5, -4),
-    tieredAround("Total pases", home.passes + away.passes, 50, 5, -100),
+    tieredFixed("Total goles", home.goals + away.goals, [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]),
+    tieredFrom90("Total remates a puerta", home.shotsOnTarget + away.shotsOnTarget, 1, 5),
+    tieredFrom90("Total remates", home.shots + away.shots, 2, 5),
+    tieredFrom90("Total córners", home.corners + away.corners, 1, 5),
+    tieredFixed("Total tarjetas", home.yellowCards + away.yellowCards, [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5]),
+    tieredFrom90("Total faltas", home.foulsCommitted + away.foulsCommitted, 2, 5),
+    tieredFrom90("Total pases", home.passes + away.passes, 50, 5),
   ];
 
   // Doble oportunidad derivada de forma
