@@ -70,14 +70,23 @@ const overProb = (line: number, lambda: number) => {
 };
 const pct = (p: number) => Math.round(p * 100);
 
-/** Genera umbrales centrados en la media. */
-function tieredAround(metric: string, lambda: number, step = 1, count = 5, startOffset = -2): TieredTotal {
-  const base = Math.max(0, Math.round(lambda) + startOffset);
-  const thresholds = Array.from({ length: count }, (_, i) => {
-    const line = base + step * i + 0.5;
-    return { line, overPct: pct(overProb(line, lambda)) };
-  });
-  return { metric, thresholds };
+/** Umbrales con líneas fijas. */
+function tieredFixed(metric: string, lambda: number, lines: number[]): TieredTotal {
+  return {
+    metric,
+    thresholds: lines.map((line) => ({ line, overPct: pct(overProb(line, lambda)) })),
+  };
+}
+
+/** Umbrales arrancando desde la línea más alta cuya prob. Over sigue siendo >= 90%. */
+function tieredFrom90(metric: string, lambda: number, step: number, count: number): TieredTotal {
+  let start = step / 2; // 0.5 si step=1, etc. (medio paso para acabar en *.5)
+  // Para steps enteros, garantizar terminación en .5
+  if (step >= 1) start = 0.5;
+  let cursor = start;
+  while (overProb(cursor + step, lambda) >= 0.9) cursor += step;
+  const lines = Array.from({ length: count }, (_, i) => cursor + step * i);
+  return tieredFixed(metric, lambda, lines);
 }
 
 /* ---------- Stats base por equipo (medias últimos 15) ---------- */
