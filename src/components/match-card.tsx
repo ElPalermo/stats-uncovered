@@ -18,8 +18,8 @@ function StatusBadge({ match }: { match: Match }) {
     );
   }
   const t = new Date(match.startTime);
-  const hours = t.getHours().toString().padStart(2, "0");
-  const minutes = t.getMinutes().toString().padStart(2, "0");
+  const hours = t.getUTCHours().toString().padStart(2, "0");
+  const minutes = t.getUTCMinutes().toString().padStart(2, "0");
   return (
     <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
       {hours}:{minutes}
@@ -39,18 +39,15 @@ function FormBar({ w, d, l }: { w: number; d: number; l: number }) {
 }
 
 function topHighlight(match: Match): { label: string; value: number } | null {
-  if (match.footballPredictions) {
-    const goals = match.footballPredictions.totals.find((t) => t.metric === "Total goles");
-    if (goals && goals.thresholds.length) {
-      const best = [...goals.thresholds].sort(
-        (a, b) => Math.abs(70 - a.overPct) - Math.abs(70 - b.overPct),
-      )[0];
-      return { label: `Over ${best.line} goles`, value: best.overPct };
-    }
-  }
-  if (match.predictions && match.predictions.length > 0) {
-    const top = [...match.predictions].sort((a, b) => b.value - a.value)[0];
-    return { label: top.label, value: top.value };
+  // Busca la línea de "Total goles / Total puntos" más cercana al 70%.
+  const totalsSection = match.predictionSections.find(
+    (s) => s.kind === "tiered" && (s.id === "tot-goals" || s.id === "pts-total" || s.id === "games-total"),
+  );
+  if (totalsSection && totalsSection.kind === "tiered" && totalsSection.thresholds.length) {
+    const best = [...totalsSection.thresholds].sort(
+      (a, b) => Math.abs(70 - a.overPct) - Math.abs(70 - b.overPct),
+    )[0];
+    return { label: `${totalsSection.title} · Over ${best.line}`, value: best.overPct };
   }
   return null;
 }
