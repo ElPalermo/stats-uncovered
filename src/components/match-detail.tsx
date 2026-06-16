@@ -1,25 +1,13 @@
-import type { Match, FootballPredictions } from "@/lib/mock-data";
+import type { Match, PredictionSection, StatsBlock } from "@/lib/mock-data";
 import { SPORT_LABEL, STAT_LABEL } from "@/lib/mock-data";
 import { X } from "lucide-react";
-import { useEffect } from "react";
-
-function StatRow({ label, home, away }: { label: string; home: number; away: number }) {
-  const total = home + away || 1;
-  const hp = (home / total) * 100;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs">
-        <span className="tabular-nums font-medium">{home}</span>
-        <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums font-medium">{away}</span>
-      </div>
-      <div className="flex h-1 w-full overflow-hidden rounded-full bg-muted">
-        <div className="bg-primary" style={{ width: `${hp}%` }} />
-        <div className="bg-chart-2" style={{ width: `${100 - hp}%` }} />
-      </div>
-    </div>
-  );
-}
+import { useEffect, useMemo } from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 function PercentBar({ value }: { value: number }) {
   return (
@@ -29,12 +17,43 @@ function PercentBar({ value }: { value: number }) {
   );
 }
 
-function TieredCard({ metric, thresholds }: { metric: string; thresholds: { line: number; overPct: number }[] }) {
+function StatRow({ label, home, away }: { label: string; home: number; away: number }) {
+  const total = home + away || 1;
+  const hp = (home / total) * 100;
   return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="mb-3 text-sm font-medium">{metric}</div>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="tabular-nums font-medium">{Number.isInteger(home) ? home : home.toFixed(1)}</span>
+        <span className="text-muted-foreground">{label}</span>
+        <span className="tabular-nums font-medium">{Number.isInteger(away) ? away : away.toFixed(1)}</span>
+      </div>
+      <div className="flex h-1 w-full overflow-hidden rounded-full bg-muted">
+        <div className="bg-primary" style={{ width: `${hp}%` }} />
+        <div className="bg-chart-2" style={{ width: `${100 - hp}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function StatsBlockView({ home, away }: { home: Record<string, number>; away: Record<string, number> }) {
+  const keys = Array.from(new Set([...Object.keys(home), ...Object.keys(away)]));
+  return (
+    <div className="space-y-3 rounded-lg border border-border p-4">
+      {keys.map((k) => (
+        <StatRow key={k} label={STAT_LABEL[k] ?? k} home={home[k] ?? 0} away={away[k] ?? 0} />
+      ))}
+    </div>
+  );
+}
+
+function SectionBody({ section }: { section: PredictionSection }) {
+  if (section.kind === "tiered") {
+    if (section.thresholds.length === 0) {
+      return <div className="text-xs text-muted-foreground">Sin líneas dentro del rango 35–95%.</div>;
+    }
+    return (
       <div className="space-y-2">
-        {thresholds.map((t) => (
+        {section.thresholds.map((t) => (
           <div key={t.line} className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Over {t.line}</span>
@@ -48,69 +67,102 @@ function TieredCard({ metric, thresholds }: { metric: string; thresholds: { line
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function CompareCard({ metric, homePct, awayPct, home, away }: { metric: string; homePct: number; awayPct: number; home: string; away: string }) {
-  return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="mb-3 text-sm font-medium">{metric}</div>
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className="bg-primary" style={{ width: `${homePct}%` }} />
-        <div className="bg-chart-2" style={{ width: `${awayPct}%` }} />
-      </div>
-      <div className="mt-2 flex items-center justify-between text-xs">
-        <span className="truncate"><span className="tabular-nums font-semibold text-primary">{homePct}%</span> <span className="text-muted-foreground">{home}</span></span>
-        <span className="truncate text-right"><span className="text-muted-foreground">{away}</span> <span className="tabular-nums font-semibold text-chart-2">{awayPct}%</span></span>
-      </div>
-    </div>
-  );
-}
-
-function FootballPredictionsView({ preds, home, away }: { preds: FootballPredictions; home: string; away: string }) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Totales por umbral (Over/Under)</h4>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {preds.totals.map((t) => (
-            <TieredCard key={t.metric} metric={t.metric} thresholds={t.thresholds} />
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Doble oportunidad</h4>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {preds.doubleChance.map((d) => (
-            <div key={d.label} className="rounded-lg border border-border p-4">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm">{d.label}</span>
-                <span className="text-xl font-semibold tabular-nums text-primary">{d.pct}%</span>
-              </div>
-              <div className="mt-2"><PercentBar value={d.pct} /></div>
+    );
+  }
+  if (section.kind === "items") {
+    return (
+      <div className="space-y-2">
+        {section.items.map((it) => (
+          <div key={it.label} className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{it.label}</span>
+              <span className="tabular-nums font-semibold text-primary">{it.pct}%</span>
             </div>
-          ))}
-          <div className="rounded-lg border border-border p-4">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm">Ambos marcan (BTTS)</span>
-              <span className="text-xl font-semibold tabular-nums text-primary">{preds.btts}%</span>
-            </div>
-            <div className="mt-2"><PercentBar value={preds.btts} /></div>
+            <PercentBar value={it.pct} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  // compare
+  return (
+    <div className="space-y-3">
+      {section.entries.map((e) => (
+        <div key={e.metric} className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="tabular-nums font-semibold text-primary">{e.homePct}%</span>
+            <span className="text-muted-foreground">{e.metric}</span>
+            <span className="tabular-nums font-semibold text-chart-2">{e.awayPct}%</span>
+          </div>
+          <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className="bg-primary" style={{ width: `${e.homePct}%` }} />
+            <div className="bg-chart-2" style={{ width: `${e.awayPct}%` }} />
           </div>
         </div>
-      </div>
-
-      <div>
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">¿Quién tendrá más?</h4>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {preds.more.map((m) => (
-            <CompareCard key={m.metric} metric={m.metric} homePct={m.homePct} awayPct={m.awayPct} home={home} away={away} />
-          ))}
-        </div>
-      </div>
+      ))}
     </div>
+  );
+}
+
+function PredictionGroups({ sections }: { sections: PredictionSection[] }) {
+  const grouped = useMemo(() => {
+    const g = new Map<string, PredictionSection[]>();
+    for (const s of sections) {
+      if (!g.has(s.group)) g.set(s.group, []);
+      g.get(s.group)!.push(s);
+    }
+    return Array.from(g.entries());
+  }, [sections]);
+
+  return (
+    <div className="space-y-6">
+      {grouped.map(([group, items]) => (
+        <div key={group}>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group}</h4>
+          <Accordion type="multiple" className="rounded-lg border border-border px-4">
+            {items.map((s) => (
+              <AccordionItem key={s.id} value={s.id} className="border-b last:border-b-0">
+                <AccordionTrigger>{s.title}</AccordionTrigger>
+                <AccordionContent>
+                  <SectionBody section={s} />
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StatsAccordion({ home, away }: { home: { avg5: StatsBlock; avg15: StatsBlock; name: string }; away: { avg5: StatsBlock; avg15: StatsBlock; name: string } }) {
+  return (
+    <Accordion type="multiple" className="rounded-lg border border-border px-4" defaultValue={["for15"]}>
+      <AccordionItem value="for15" className="border-b">
+        <AccordionTrigger>A favor · últimos 15 partidos</AccordionTrigger>
+        <AccordionContent>
+          <StatsBlockView home={home.avg15.for} away={away.avg15.for} />
+        </AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="for5" className="border-b">
+        <AccordionTrigger>A favor · últimos 5 partidos</AccordionTrigger>
+        <AccordionContent>
+          <StatsBlockView home={home.avg5.for} away={away.avg5.for} />
+        </AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="against15" className="border-b">
+        <AccordionTrigger>En contra · últimos 15 partidos</AccordionTrigger>
+        <AccordionContent>
+          <StatsBlockView home={home.avg15.against} away={away.avg15.against} />
+        </AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="against5" className="border-b last:border-b-0">
+        <AccordionTrigger>En contra · últimos 5 partidos</AccordionTrigger>
+        <AccordionContent>
+          <StatsBlockView home={home.avg5.against} away={away.avg5.against} />
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }
 
@@ -121,15 +173,13 @@ export function MatchDetail({ match, onClose }: { match: Match; onClose: () => v
     return () => window.removeEventListener("keydown", fn);
   }, [onClose]);
 
-  const statKeys = Object.keys(match.home.avgStats);
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/30 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div
         className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 flex items-center justify-between border-b border-border bg-card/95 px-6 py-4 backdrop-blur">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 px-6 py-4 backdrop-blur">
           <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">
               {SPORT_LABEL[match.sport]} · {match.league}
@@ -155,43 +205,16 @@ export function MatchDetail({ match, onClose }: { match: Match; onClose: () => v
         <div className="space-y-8 p-6">
           <section>
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Medias · últimos 15 partidos
+              Estadísticas medias
             </h3>
-            <div className="space-y-3 rounded-lg border border-border p-4">
-              {statKeys.map((k) => (
-                <StatRow
-                  key={k}
-                  label={STAT_LABEL[k] ?? k}
-                  home={match.home.avgStats[k]}
-                  away={match.away.avgStats[k]}
-                />
-              ))}
-            </div>
+            <StatsAccordion home={match.home} away={match.away} />
           </section>
 
           <section id="predictions">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Predicciones
             </h3>
-            {match.footballPredictions ? (
-              <FootballPredictionsView preds={match.footballPredictions} home={match.home.name} away={match.away.name} />
-            ) : match.predictions && match.predictions.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {match.predictions.map((p) => (
-                  <div key={p.label} className="rounded-lg border border-border p-4">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-sm text-foreground">{p.label}</span>
-                      <span className="text-2xl font-semibold tabular-nums text-primary">
-                        {p.value}<span className="text-sm text-muted-foreground">{p.unit}</span>
-                      </span>
-                    </div>
-                    <div className="mt-3"><PercentBar value={p.value} /></div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">Sin predicciones disponibles.</div>
-            )}
+            <PredictionGroups sections={match.predictionSections} />
           </section>
 
           <section>
@@ -202,7 +225,14 @@ export function MatchDetail({ match, onClose }: { match: Match; onClose: () => v
               {[match.home, match.away].map((t) => (
                 <div key={t.name} className="rounded-lg border border-border p-4">
                   <div className="text-sm font-medium">{t.name}</div>
-                  <div className="mt-3 flex items-baseline gap-3 text-xs text-muted-foreground">
+                  <div className="mt-3 text-[11px] uppercase tracking-wide text-muted-foreground">Últimos 5</div>
+                  <div className="mt-1 flex items-baseline gap-3 text-xs text-muted-foreground">
+                    <span><span className="text-base font-semibold text-success">{t.last5.wins}</span> G</span>
+                    <span><span className="text-base font-semibold text-warning">{t.last5.draws}</span> E</span>
+                    <span><span className="text-base font-semibold text-destructive">{t.last5.losses}</span> P</span>
+                  </div>
+                  <div className="mt-3 text-[11px] uppercase tracking-wide text-muted-foreground">Últimos 15</div>
+                  <div className="mt-1 flex items-baseline gap-3 text-xs text-muted-foreground">
                     <span><span className="text-base font-semibold text-success">{t.last15.wins}</span> G</span>
                     <span><span className="text-base font-semibold text-warning">{t.last15.draws}</span> E</span>
                     <span><span className="text-base font-semibold text-destructive">{t.last15.losses}</span> P</span>
