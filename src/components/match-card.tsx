@@ -1,22 +1,7 @@
 import type { Match } from "@/lib/mock-data";
 import { SPORT_LABEL } from "@/lib/mock-data";
 
-function StatusBadge({ match }: { match: Match }) {
-  if (match.status === "live") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
-        LIVE{match.minute ? ` · ${match.minute}'` : ""}
-      </span>
-    );
-  }
-  if (match.status === "finished") {
-    return (
-      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-        FT
-      </span>
-    );
-  }
+function StartBadge({ match }: { match: Match }) {
   const t = new Date(match.startTime);
   const hours = t.getUTCHours().toString().padStart(2, "0");
   const minutes = t.getUTCMinutes().toString().padStart(2, "0");
@@ -39,15 +24,14 @@ function FormBar({ w, d, l }: { w: number; d: number; l: number }) {
 }
 
 function topHighlight(match: Match): { label: string; value: number } | null {
-  // Busca la línea de "Total goles / Total puntos" más cercana al 70%.
-  const totalsSection = match.predictionSections.find(
-    (s) => s.kind === "tiered" && (s.id === "tot-goals" || s.id === "pts-total" || s.id === "games-total"),
+  const totals = match.predictionSections.find(
+    (s) => s.kind === "tiered" && (s.id === "tot-goals" || s.id === "games-total"),
   );
-  if (totalsSection && totalsSection.kind === "tiered" && totalsSection.thresholds.length) {
-    const best = [...totalsSection.thresholds].sort(
-      (a, b) => Math.abs(70 - a.overPct) - Math.abs(70 - b.overPct),
+  if (totals && totals.kind === "tiered" && totals.thresholds.length) {
+    const best = [...totals.thresholds].sort(
+      (a, b) => Math.abs(70 - a.overPct.last10) - Math.abs(70 - b.overPct.last10),
     )[0];
-    return { label: `${totalsSection.title} · Over ${best.line}`, value: best.overPct };
+    return { label: `${totals.title} · Over ${best.line}`, value: best.overPct.last10 };
   }
   return null;
 }
@@ -65,38 +49,22 @@ export function MatchCard({ match, onSelect }: { match: Match; onSelect: (m: Mat
           <span>·</span>
           <span>{match.league}</span>
         </div>
-        <StatusBadge match={match} />
+        <StartBadge match={match} />
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{match.home.name}</span>
-            {match.scoreHome !== undefined && (
-              <span className="text-lg font-semibold tabular-nums">{match.scoreHome}</span>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{match.away.name}</span>
-            {match.scoreAway !== undefined && (
-              <span className="text-lg font-semibold tabular-nums">{match.scoreAway}</span>
-            )}
-          </div>
-        </div>
+      <div className="flex-1 space-y-2">
+        <div className="text-sm font-medium">{match.home.name}</div>
+        <div className="text-sm font-medium">{match.away.name}</div>
       </div>
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Últimos 15 · local</span>
+          <span className="text-muted-foreground">Últimos 10 · local</span>
           <span className="tabular-nums text-foreground">
-            {match.home.last15.wins}G {match.home.last15.draws}E {match.home.last15.losses}P
+            {match.home.last10.wins}G {match.home.last10.draws}E {match.home.last10.losses}P
           </span>
         </div>
-        <FormBar
-          w={match.home.last15.wins}
-          d={match.home.last15.draws}
-          l={match.home.last15.losses}
-        />
+        <FormBar w={match.home.last10.wins} d={match.home.last10.draws} l={match.home.last10.losses} />
       </div>
 
       {top && (
