@@ -23,7 +23,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "Todos" },
   { id: "football", label: SPORT_LABEL.football },
   { id: "tennis", label: SPORT_LABEL.tennis },
-  { id: "basketball", label: SPORT_LABEL.basketball },
 ];
 
 function Index() {
@@ -83,6 +82,7 @@ function Index() {
       <SiteFooter />
 
       {selected && <MatchDetail match={selected} onClose={() => setSelected(null)} />}
+      <BetSlipPanel />
     </div>
   );
 }
