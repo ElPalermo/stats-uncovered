@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/site-header";
 import { MatchCard } from "@/components/match-card";
 import { MatchDetail } from "@/components/match-detail";
+import { BetSlipPanel } from "@/components/bet-slip-panel";
 import { MATCHES, SPORT_LABEL, type Match, type Sport } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/")({
